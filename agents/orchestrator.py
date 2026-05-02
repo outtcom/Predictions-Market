@@ -32,6 +32,7 @@ from agents.market_analyst import MarketAnalyst, MarketAnalysis
 from agents.news_intel_agent import NewsIntelAgent
 from agents.risk_manager import RiskAssessment, RiskManager
 from agents.signal_agent import SignalAgent
+from agents.smart_money_agent import SmartMoneyAgent
 
 
 @dataclass
@@ -63,6 +64,7 @@ class Orchestrator:
 
         self.ingester = DataIngester()
         self.signal_agent = SignalAgent()
+        self.smart_money_agent = SmartMoneyAgent()
         self.analyst = MarketAnalyst()
         self.news_intel = NewsIntelAgent()
         self.risk_manager = RiskManager()
@@ -83,6 +85,8 @@ class Orchestrator:
 
         # 2. Generate signals
         signals = self.signal_agent.generate_signals(all_markets)
+        smart_signals = self.smart_money_agent.generate_signals(all_markets)
+        smart_map = {s.market_id: s for s in smart_signals}
 
         # 3. Analyze markets
         analyses = self.analyst.analyze_batch(all_markets, signals)
@@ -130,6 +134,17 @@ class Orchestrator:
             if signal is None:
                 continue
 
+            # Smart money check
+            smart = smart_map.get(market.market_id)
+            smart_agrees = False
+            smart_note = ""
+            if smart:
+                # Smart money agrees if both point same direction vs market
+                our_direction = signal.signal_prob - market.current_yes_price
+                smart_direction = smart.signal_prob - market.current_yes_price
+                smart_agrees = (our_direction * smart_direction) > 0
+                smart_note = f" SmartMoney: {smart.signal_strength}{'✓' if smart_agrees else '✗'}."
+
             # Risk gate
             assessment = self.risk_manager.assess(
                 analysis,
@@ -153,11 +168,12 @@ class Orchestrator:
                         "signal_agent": "BUY",
                         "risk_manager": "REJECTED",
                     },
-                    rationale=assessment.reason,
+                    rationale=assessment.reason + smart_note,
                 )
                 decisions.append(decision)
+                sources = signal.signal_sources + (["smart_money"] if smart_agrees else [])
                 self.notifier.send_trade_alert(
-                    decision, market.question, signal.signal_sources
+                    decision, market.question, sources
                 )
                 continue
 
@@ -213,12 +229,13 @@ class Orchestrator:
                 rationale=(
                     f"Superforecaster consensus at {signal.signal_prob:.0%} vs "
                     f"market {market.current_yes_price:.0%}; EV={analysis.expected_value:.2%}; "
-                    f"{assessment.reason}{news_str}"
+                    f"{assessment.reason}{smart_note}{news_str}"
                 ),
             )
             decisions.append(decision)
+            sources = signal.signal_sources + (["smart_money"] if smart_agrees else [])
             self.notifier.send_trade_alert(
-                decision, market.question, signal.signal_sources
+                decision, market.question, sources
             )
 
             log_event(
