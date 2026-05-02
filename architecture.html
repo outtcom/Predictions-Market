@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prediction Market Trading System — Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1115;
+    color: #e2e8f0;
+    line-height: 1.5;
+    padding: 2rem;
+  }
+  h1 { text-align: center; color: #38bdf8; margin-bottom: 0.5rem; font-size: 1.8rem; }
+  h2 { color: #94a3b8; font-size: 0.85rem; text-align: center; margin-bottom: 2rem; font-weight: 400; }
+
+  .diagram {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* Layers */
+  .layer {
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    background: #0b0d10;
+  }
+  .layer-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 1rem;
+  }
+
+  /* Grid of cards */
+  .grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .grid-5 { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+  .card {
+    background: #151921;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 1rem;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #38bdf8; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .icon-blue { background: #0c4a6e; color: #7dd3fc; }
+  .icon-green { background: #064e3b; color: #6ee7b7; }
+  .icon-purple { background: #4c1d95; color: #c4b5fd; }
+  .icon-orange { background: #7c2d12; color: #fdba74; }
+  .icon-red { background: #7f1d1d; color: #fca5a5; }
+  .icon-yellow { background: #713f12; color: #fde047; }
+  .icon-cyan { background: #164e63; color: #67e8f9; }
+
+  .card-title { font-weight: 600; font-size: 0.9rem; color: #f1f5f9; }
+  .card-desc { font-size: 0.78rem; color: #94a3b8; margin-top: 0.25rem; }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    margin-right: 0.25rem;
+    font-weight: 500;
+  }
+  .tag-public { background: #14532d; color: #86efac; }
+  .tag-auth { background: #7f1d1d; color: #fca5a5; }
+  .tag-optional { background: #374151; color: #d1d5db; }
+  .tag-core { background: #1e3a8a; color: #93c5fd; }
+
+  /* Flow arrows */
+  .arrow-down {
+    text-align: center;
+    color: #475569;
+    font-size: 1.4rem;
+    margin: 0.25rem 0;
+  }
+
+  /* Pipeline */
+  .pipeline {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .pipe-step {
+    flex: 1;
+    min-width: 140px;
+    background: #151921;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: center;
+    position: relative;
+  }
+  .pipe-step::after {
+    content: "→";
+    position: absolute;
+    right: -0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #475569;
+    font-size: 1rem;
+  }
+  .pipe-step:last-child::after { display: none; }
+  .pipe-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #cbd5e1;
+  }
+  .pipe-detail {
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+  }
+
+  /* Data stores */
+  .store-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .store {
+    flex: 1;
+    min-width: 180px;
+    background: #0f172a;
+    border: 1px dashed #334155;
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: center;
+  }
+  .store-name { font-size: 0.75rem; color: #94a3b8; }
+  .store-files { font-size: 0.7rem; color: #64748b; margin-top: 0.25rem; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* Detail box */
+  .detail-box {
+    background: #0f172a;
+    border-left: 3px solid #38bdf8;
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin-top: 0.75rem;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+  }
+  .detail-box code {
+    background: #1e293b;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 0.75rem;
+    color: #7dd3fc;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .pipe-step::after { display: none; }
+    body { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🎯 Prediction Market Trading System</h1>
+<h2>Multi-Agent Architecture with LLM Ensemble Forecasting</h2>
+
+<div class="diagram">
+
+  <!-- EXTERNAL APIs -->
+  <div class="layer">
+    <div class="layer-title">External Data Sources</div>
+    <div class="grid grid-5">
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-blue">P</div>
+          <div class="card-title">Polymarket Gamma</div>
+        </div>
+        <div class="card-desc">Market discovery, metadata, implied probabilities. No auth required.</div>
+        <span class="tag tag-public">Public</span>
+        <span class="tag tag-core">Trading Venue</span>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-blue">C</div>
+          <div class="card-title">Polymarket CLOB</div>
+        </div>
+        <div class="card-desc">Order book, limit orders, fill tracking. Wallet-derived API credentials.</div>
+        <span class="tag tag-auth">Wallet Auth</span>
+        <span class="tag tag-core">Trading Venue</span>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-green">M</div>
+          <div class="card-title">Manifold Markets</div>
+        </div>
+        <div class="card-desc">Play-money consensus. Free REST API. Cross-platform arbitrage signal source.</div>
+        <span class="tag tag-public">Public Read</span>
+        <span class="tag tag-optional">Signal Source</span>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-purple">Mt</div>
+          <div class="card-title">Metaculus</div>
+        </div>
+        <div class="card-desc">Superforecaster community predictions. Token auth. Primary signal source.</div>
+        <span class="tag tag-auth">Token</span>
+        <span class="tag tag-core">Signal Source</span>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-yellow">N</div>
+          <div class="card-title">NewsAPI</div>
+        </div>
+        <div class="card-desc">Headlines for event-driven volatility capture. 100 req/day free tier.</div>
+        <span class="tag tag-auth">API Key</span>
+        <span class="tag tag-optional">Intel Feed</span>
+      </div>
+    </div>
+
+    <div class="grid grid-4" style="margin-top:0.75rem">
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-cyan">G</div>
+          <div class="card-title">GPT-4o</div>
+        </div>
+        <div class="card-desc">Structured superforecaster prompts with base-rate anchoring.</div>
+        <span class="tag tag-core">LLM Signal</span>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-cyan">C</div>
+          <div class="card-title">Claude Sonnet 4-6</div>
+        </div>
+        <div class="card-desc">Independent probability estimate via Anthropic API.</div>
+        <span class="tag tag-core">LLM Signal</span>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-cyan">K</div>
+          <div class="card-title">Kalshi</div>
+        </div>
+        <div class="card-desc">CFTC-regulated US exchange. Sandbox available. Optional for US users.</div>
+        <span class="tag tag-auth">Session</span>
+        <span class="tag tag-optional">Trading Venue</span>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-cyan">Gq</div>
+          <div class="card-title">Groq (Llama)</div>
+        </div>
+        <div class="card-desc">Fast/cheap fallback LLM via Groq API. Optional third ensemble member.</div>
+        <span class="tag tag-auth">API Key</span>
+        <span class="tag tag-optional">LLM Signal</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- DATA INGESTER -->
+  <div class="layer">
+    <div class="layer-title">P0 — Data Ingester Agent</div>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-label">Polymarket</div>
+        <div class="pipe-detail">100 markets/page<br>Gamma API</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-label">Manifold</div>
+        <div class="pipe-detail">100 markets/page<br>Public API</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-label">Kalshi</div>
+        <div class="pipe-detail">100 markets/page<br>Session auth</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-label">Normalize</div>
+        <div class="pipe-detail">Unified schema<br>price, vol, liquidity</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-label">Parquet</div>
+        <div class="pipe-detail">Daily versioning<br>Checkpoint-based</div>
+      </div>
+    </div>
+    <div class="detail-box">
+      Output: <code>data/polymarket/markets/markets_YYYYMMDD.parquet</code> +
+      <code>data/manifold/markets/markets_YYYYMMDD.parquet</code> +
+      <code>data/kalshi/markets/markets_YYYYMMDD.parquet</code>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- SIGNAL AGENT -->
+  <div class="layer">
+    <div class="layer-title">P1 — Signal Agent (3 Independent Sources)</div>
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-purple">1</div>
+          <div class="card-title">Metaculus Superforecasters</div>
+        </div>
+        <div class="card-desc">Fetches 60 open binary questions. Extracts recency-weighted community prediction. Matches to Polymarket markets by text overlap (>60% Jaccard).</div>
+        <div class="detail-box">Threshold: <code>|CP - market| > 5%</code> → emit signal</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-cyan">2</div>
+          <div class="card-title">LLM Ensemble</div>
+        </div>
+        <div class="card-desc">Tournament-grade prompt with base-rate anchoring, inside/outside view, uncertainty quantification. GPT-4o + Claude Sonnet 4-6 queried in parallel.</div>
+        <div class="detail-box">Median of models taken. Capped to top 10 markets by volume to manage cost/latency.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-green">3</div>
+          <div class="card-title">Manifold Cross-Platform</div>
+        </div>
+        <div class="card-desc">Fetches 300 top Manifold markets. Matches to Polymarket by text overlap (>65%). When prices diverge, the play-money consensus suggests mispricing.</div>
+        <div class="detail-box">Threshold: <code>|P_manifold - P_poly| > 3%</code> → emit arbitrage signal</div>
+      </div>
+    </div>
+    <div class="detail-box" style="border-color:#a78bfa; margin-top:0.75rem">
+      <strong>Signal Blending:</strong> If multiple sources hit the same market, probabilities are averaged.
+      Source list concatenated for audit trail.
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- MARKET ANALYST -->
+  <div class="layer">
+    <div class="layer-title">P1 — Market Analyst Agent</div>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-label">Classify</div>
+        <div class="pipe-detail">Keyword-based:<br>political, economic, sports, crypto, science, geopolitical</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-label">EV Calc</div>
+        <div class="pipe-detail"><code>(true_prob - price) / price</code><br>1% price floor</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-label">Liquidity</div>
+        <div class="pipe-detail">Log-scaled score<br>Flag &lt;$1K vol as slippage risk</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-label">Watchlist</div>
+        <div class="pipe-detail">EV > 3%<br>Not slippage-risk<br>→ watchlist</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- ORCHESTRATOR + RISK + EXECUTION -->
+  <div class="layer">
+    <div class="layer-title">P2/P3 — Orchestrator → Risk Manager → Execution Agent</div>
+    <div class="pipeline">
+      <div class="pipe-step" style="border-color:#1e3a8a;">
+        <div class="pipe-label">🎯 Orchestrator</div>
+        <div class="pipe-detail">Collects signals<br>+ analyst watchlist<br>Synthesizes decision</div>
+      </div>
+      <div class="pipe-step" style="border-color:#7f1d1d;">
+        <div class="pipe-label">🛡️ Risk Manager</div>
+        <div class="pipe-detail">Kelly 0.25x sizing<br>Hard vetos<br>Exposure limits</div>
+      </div>
+      <div class="pipe-step" style="border-color:#14532d;">
+        <div class="pipe-label">⚙️ Execution</div>
+        <div class="pipe-detail">Paper/live mode<br>Limit orders<br>Position ledger</div>
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-top:0.75rem">
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-red">V</div>
+          <div class="card-title">Hard Veto Conditions</div>
+        </div>
+        <div class="card-desc">
+          • Daily loss limit hit (5%)<br>
+          • Ambiguous resolution criteria<br>
+          • Single unverified source only<br>
+          • Signal confidence &lt; 60%<br>
+          • EV &lt; 3%
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-orange">K</div>
+          <div class="card-title">Kelly Sizing</div>
+        </div>
+        <div class="card-desc">
+          <code>f* = (p·b - q) / b</code><br>
+          Position = f* × 0.25 × bankroll<br>
+          Capped at $500 single position<br>
+          Capped at 60% portfolio exposure<br>
+          Max 40% per category
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="icon icon-green">E</div>
+          <div class="card-title">Exit Levels</div>
+        </div>
+        <div class="card-desc">
+          <code>TP = entry + (edge × 0.7)</code><br>
+          <code>SL = entry - (edge × 0.5)</code><br>
+          SL never above entry (BUY_YES)<br>
+          Auto-close on trigger
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">↓</div>
+
+  <!-- STORAGE & LOGGING -->
+  <div class="layer">
+    <div class="layer-title">Storage & Audit Layer</div>
+    <div class="store-row">
+      <div class="store">
+        <div class="store-name">📁 data/polymarket/markets/</div>
+        <div class="store-files">markets_YYYYMMDD.parquet</div>
+      </div>
+      <div class="store">
+        <div class="store-name">📁 data/manifold/markets/</div>
+        <div class="store-files">markets_YYYYMMDD.parquet</div>
+      </div>
+      <div class="store">
+        <div class="store-name">📁 logs/positions.jsonl</div>
+        <div class="store-files">Append-only ledger</div>
+      </div>
+      <div class="store">
+        <div class="store-name">📁 stdout JSON logs</div>
+        <div class="store-files">Structured events</div>
+      </div>
+    </div>
+    <div class="detail-box" style="border-color:#f59e0b; margin-top:0.75rem">
+      <strong>Every trade decision logged as JSON:</strong>
+      <code>{timestamp, event:"TRADE_DECISION", market_id, decision, signal_prob, market_price, expected_value, kelly_size_usd, risk_verdict, agent_votes, rationale}</code>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#38bdf8"></div> Public API</div>
+    <div class="legend-item"><div class="dot" style="background:#f87171"></div> Auth Required</div>
+    <div class="legend-item"><div class="dot" style="background:#34d399"></div> Core Signal</div>
+    <div class="legend-item"><div class="dot" style="background:#a78bfa"></div> Optional Signal</div>
+    <div class="legend-item"><div class="dot" style="background:#fbbf24"></div> Trading Venue</div>
+  </div>
+
+</div>
+</body>
+</html>
