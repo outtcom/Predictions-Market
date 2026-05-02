@@ -239,7 +239,17 @@ class Orchestrator:
         closed_today: list[Any] = []
         for market in all_markets:
             closed = self.execution.check_exits(market)
-            closed_today.extend(closed)
+            for pos in closed:
+                closed_today.append(pos)
+                market_q = next(
+                    (m.question for m in all_markets if m.market_id == pos.market_id),
+                    "",
+                )
+                self.notifier.send_exit_alert(
+                    position=pos,
+                    market_question=market_q,
+                    exit_price=pos.exit_price or market.current_yes_price,
+                )
 
         self.notifier.send_daily_summary(
             open_positions=self.execution.get_open_positions(),

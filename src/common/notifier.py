@@ -47,6 +47,10 @@ class TelegramNotifier:
             log_event("TELEGRAM_ERROR", {"error": str(exc)})
             return None
 
+    def _dashboard_link(self) -> str:
+        url = os.getenv("GITHUB_PAGES_URL", "")
+        return f'\n<a href="{url}">📊 Dashboard</a>' if url else ""
+
     def send_trade_alert(
         self,
         decision: Any,
@@ -83,10 +87,43 @@ class TelegramNotifier:
             f"📎 Sources: {sources}\n"
             f"💡 {rationale}\n"
             f'<a href="{market_url}">Open on Polymarket</a>'
+            f"{self._dashboard_link()}"
         )
 
         result = self._send(text)
         log_event("TELEGRAM_SENT", {"type": "trade_alert", "market_id": decision.market_id})
+        return result
+
+    def send_exit_alert(
+        self,
+        position: Any,
+        market_question: str,
+        exit_price: float,
+    ) -> dict[str, Any] | None:
+        """Send a formatted position exit alert."""
+        if not self.active:
+            return None
+
+        pnl = getattr(position, "pnl_usd", 0) or 0
+        emoji = "🟢" if pnl >= 0 else "🔴"
+        header = f"<b>{emoji} POSITION CLOSED</b>"
+
+        q = _escape_html(market_question[:120])
+        entry = getattr(position, "entry_price", 0)
+        side = getattr(position, "side", "")
+
+        text = (
+            f"{header}\n"
+            f"📊 <b>{q}</b>\n"
+            f"📉 Side: <code>{side}</code>\n"
+            f"🎯 Entry: <code>{entry:.3f}</code> → Exit: <code>{exit_price:.3f}</code>\n"
+            f"💰 P&amp;L: <code>${pnl:+.2f}</code>\n"
+            f'<a href="https://polymarket.com/event/{position.market_id}">Open on Polymarket</a>'
+            f"{self._dashboard_link()}"
+        )
+
+        result = self._send(text)
+        log_event("TELEGRAM_SENT", {"type": "exit_alert", "market_id": position.market_id})
         return result
 
     def send_daily_summary(
@@ -104,17 +141,14 @@ class TelegramNotifier:
         wins = [p for p in closed_today if (getattr(p, "pnl_usd", 0) or 0) > 0]
         win_rate = len(wins) / len(closed_today) if closed_today else 0.0
 
-        dashboard_url = os.getenv("GITHUB_PAGES_URL", "")
-        dashboard_line = f'<a href="{dashboard_url}">📊 Open Dashboard</a>' if dashboard_url else "📊 Dashboard: set GITHUB_PAGES_URL in .env"
-
         text = (
             f"📋 <b>Daily Summary</b>\n"
             f"Open positions: <code>{len(open_positions)}</code>\n"
             f"Closed today: <code>{len(closed_today)}</code>\n"
             f"Realized P&amp;L: <code>${realized_pnl:+.2f}</code>\n"
             f"Win rate today: <code>{win_rate:.0%}</code>\n"
-            f"Bankroll: <code>${bankroll:.2f}</code>\n\n"
-            f"{dashboard_line}"
+            f"Bankroll: <code>${bankroll:.2f}</code>"
+            f"{self._dashboard_link()}"
         )
 
         result = self._send(text)
