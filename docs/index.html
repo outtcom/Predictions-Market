@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Market Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 1.8rem; margin-bottom: 8px; color: #38bdf8; }
+        .subtitle { color: #94a3b8; margin-bottom: 24px; font-size: 0.9rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+        .card h3 { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+        .card .value { font-size: 2rem; font-weight: 700; color: #f8fafc; }
+        .card .value.positive { color: #4ade80; }
+        .card .value.negative { color: #f87171; }
+        .section { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #334155; }
+        .section h2 { font-size: 1.2rem; margin-bottom: 16px; color: #38bdf8; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; }
+        th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        tr:hover { background: #27354f; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .badge-approved { background: #14532d; color: #4ade80; }
+        .badge-rejected { background: #450a0a; color: #f87171; }
+        .chart-container { position: relative; height: 300px; }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Prediction Market Dashboard</h1>
+        <p class="subtitle">Generated at 2026-05-02T17:06:33.993604+00:00</p>
+
+        <div class="grid">
+            <div class="card">
+                <h3>Open Positions</h3>
+                <div class="value">54</div>
+            </div>
+            <div class="card">
+                <h3>Closed Positions</h3>
+                <div class="value">1</div>
+            </div>
+            <div class="card">
+                <h3>Realized P&L</h3>
+                <div class="value positive">$+0.00</div>
+            </div>
+            <div class="card">
+                <h3>Win Rate</h3>
+                <div class="value">0%</div>
+            </div>
+            <div class="card">
+                <h3>Approved Signals</h3>
+                <div class="value">0</div>
+            </div>
+            <div class="card">
+                <h3>Rejected Signals</h3>
+                <div class="value">0</div>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <div class="section">
+                <h2>Signal Probability vs Market Price</h2>
+                <div class="chart-container">
+                    <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+            <div class="section">
+                <h2>Win / Loss</h2>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Open Positions</h2>
+            <table>
+                <thead><tr><th>Market</th><th>Side</th><th>Entry</th><th>Size</th><th>TP</th><th>SL</th></tr></thead>
+                <tbody>
+                    <tr><td>0xcccb7e7613a087...</td><td>BUY_YES</td><td>0.011</td><td>$212.10</td><td>nan</td><td>nan</td></tr><tr><td>0xe2b48e3b44de96...</td><td>BUY_YES</td><td>0.079</td><td>$19.40</td><td>nan</td><td>nan</td></tr><tr><td>0x4a67e1270a2ed8...</td><td>BUY_YES</td><td>0.002</td><td>$44.69</td><td>nan</td><td>nan</td></tr><tr><td>0x44887f53abbfe7...</td><td>BUY_YES</td><td>0.001</td><td>$29.89</td><td>nan</td><td>nan</td></tr><tr><td>0xbdd688664b4f3c...</td><td>BUY_YES</td><td>0.041</td><td>$20.59</td><td>nan</td><td>nan</td></tr><tr><td>0x82d8c535c037a7...</td><td>BUY_YES</td><td>0.007</td><td>$28.34</td><td>nan</td><td>nan</td></tr><tr><td>0x6b44bd667fad6c...</td><td>BUY_YES</td><td>0.042</td><td>$20.35</td><td>nan</td><td>nan</td></tr><tr><td>0x713641f745d71f...</td><td>BUY_YES</td><td>0.057</td><td>$16.83</td><td>nan</td><td>nan</td></tr><tr><td>0x649ad05a286834...</td><td>BUY_YES</td><td>0.013</td><td>$16.85</td><td>nan</td><td>nan</td></tr><tr><td>0x9b56568af78dd0...</td><td>BUY_YES</td><td>0.004</td><td>$29.23</td><td>nan</td><td>nan</td></tr><tr><td>0x13e1cc703a1208...</td><td>BUY_YES</td><td>0.087</td><td>$25.34</td><td>nan</td><td>nan</td></tr><tr><td>0x796e791e705857...</td><td>BUY_YES</td><td>0.029</td><td>$38.99</td><td>nan</td><td>nan</td></tr><tr><td>0x7338d9dea0de82...</td><td>BUY_YES</td><td>0.009</td><td>$28.11</td><td>nan</td><td>nan</td></tr><tr><td>0x4e65282819c98c...</td><td>BUY_YES</td><td>0.011</td><td>$42.72</td><td>nan</td><td>nan</td></tr><tr><td>0x567f1ff714731f...</td><td>BUY_YES</td><td>0.011</td><td>$26.56</td><td>nan</td><td>nan</td></tr><tr><td>0xfda648d24cdad3...</td><td>BUY_YES</td><td>0.001</td><td>$24.89</td><td>nan</td><td>nan</td></tr><tr><td>0xfc6260666d020a...</td><td>BUY_YES</td><td>0.105</td><td>$68.44</td><td>nan</td><td>nan</td></tr><tr><td>0xe5bd80313b8859...</td><td>BUY_YES</td><td>0.011</td><td>$15.03</td><td>nan</td><td>nan</td></tr><tr><td>0xfda648d24cdad3...</td><td>BUY_YES</td><td>0.001</td><td>$37.39</td><td>nan</td><td>nan</td></tr><tr><td>0xfc6260666d020a...</td><td>BUY_YES</td><td>0.060</td><td>$77.13</td><td>nan</td><td>nan</td></tr><tr><td>0xcdb1f040094923...</td><td>BUY_YES</td><td>0.015</td><td>$18.92</td><td>nan</td><td>nan</td></tr><tr><td>0xe5bd80313b8859...</td><td>BUY_YES</td><td>0.011</td><td>$15.03</td><td>nan</td><td>nan</td></tr><tr><td>0x796e791e705857...</td><td>BUY_YES</td><td>0.029</td><td>$38.99</td><td>nan</td><td>nan</td></tr><tr><td>0x4e65282819c98c...</td><td>BUY_YES</td><td>0.001</td><td>$44.90</td><td>nan</td><td>nan</td></tr><tr><td>0xfda648d24cdad3...</td><td>BUY_YES</td><td>0.001</td><td>$29.89</td><td>nan</td><td>nan</td></tr><tr><td>0xfc6260666d020a...</td><td>BUY_YES</td><td>0.065</td><td>$76.20</td><td>nan</td><td>nan</td></tr><tr><td>0x796e791e705857...</td><td>BUY_YES</td><td>0.029</td><td>$31.27</td><td>nan</td><td>nan</td></tr><tr><td>0x4e65282819c98c...</td><td>BUY_YES</td><td>0.001</td><td>$44.90</td><td>nan</td><td>nan</td></tr><tr><td>0xfda648d24cdad3...</td><td>BUY_YES</td><td>0.001</td><td>$29.89</td><td>nan</td><td>nan</td></tr><tr><td>0xfc6260666d020a...</td><td>BUY_YES</td><td>0.065</td><td>$68.18</td><td>nan</td><td>nan</td></tr><tr><td>0x649ad05a286834...</td><td>BUY_YES</td><td>0.011</td><td>$27.44</td><td>nan</td><td>nan</td></tr><tr><td>0x13e1cc703a1208...</td><td>BUY_YES</td><td>0.092</td><td>$24.10</td><td>nan</td><td>nan</td></tr><tr><td>0x796e791e705857...</td><td>BUY_YES</td><td>0.028</td><td>$39.20</td><td>nan</td><td>nan</td></tr><tr><td>0x7338d9dea0de82...</td><td>BUY_YES</td><td>0.005</td><td>$28.78</td><td>nan</td><td>nan</td></tr><tr><td>0x567f1ff714731f...</td><td>BUY_YES</td><td>0.013</td><td>$26.99</td><td>nan</td><td>nan</td></tr><tr><td>0x4405c62496c4fd...</td><td>BUY_YES</td><td>0.007</td><td>$28.45</td><td>nan</td><td>nan</td></tr><tr><td>0x649ad05a286834...</td><td>BUY_YES</td><td>0.011</td><td>$27.44</td><td>nan</td><td>nan</td></tr><tr><td>0x13e1cc703a1208...</td><td>BUY_YES</td><td>0.092</td><td>$24.10</td><td>nan</td><td>nan</td></tr><tr><td>0x796e791e705857...</td><td>BUY_YES</td><td>0.028</td><td>$31.49</td><td>nan</td><td>nan</td></tr><tr><td>0x7338d9dea0de82...</td><td>BUY_YES</td><td>0.005</td><td>$28.78</td><td>nan</td><td>nan</td></tr><tr><td>0x567f1ff714731f...</td><td>BUY_YES</td><td>0.013</td><td>$34.59</td><td>nan</td><td>nan</td></tr><tr><td>0x4405c62496c4fd...</td><td>BUY_YES</td><td>0.007</td><td>$28.45</td><td>nan</td><td>nan</td></tr><tr><td>0x649ad05a286834...</td><td>BUY_YES</td><td>0.011</td><td>$27.44</td><td>nan</td><td>nan</td></tr><tr><td>0x13e1cc703a1208...</td><td>BUY_YES</td><td>0.092</td><td>$26.86</td><td>nan</td><td>nan</td></tr><tr><td>0x796e791e705857...</td><td>BUY_YES</td><td>0.028</td><td>$39.20</td><td>nan</td><td>nan</td></tr><tr><td>0x7338d9dea0de82...</td><td>BUY_YES</td><td>0.006</td><td>$28.56</td><td>nan</td><td>nan</td></tr><tr><td>0x567f1ff714731f...</td><td>BUY_YES</td><td>0.015</td><td>$26.76</td><td>nan</td><td>nan</td></tr><tr><td>0x4405c62496c4fd...</td><td>BUY_YES</td><td>0.005</td><td>$28.78</td><td>nan</td><td>nan</td></tr><tr><td>0x649ad05a286834...</td><td>BUY_YES</td><td>0.011</td><td>$27.44</td><td>nan</td><td>nan</td></tr><tr><td>0x13e1cc703a1208...</td><td>BUY_YES</td><td>0.092</td><td>$24.10</td><td>nan</td><td>nan</td></tr><tr><td>0x796e791e705857...</td><td>BUY_YES</td><td>0.028</td><td>$31.49</td><td>nan</td><td>nan</td></tr><tr><td>0x7338d9dea0de82...</td><td>BUY_YES</td><td>0.006</td><td>$28.56</td><td>nan</td><td>nan</td></tr><tr><td>0x567f1ff714731f...</td><td>BUY_YES</td><td>0.013</td><td>$26.99</td><td>nan</td><td>nan</td></tr><tr><td>0x4405c62496c4fd...</td><td>BUY_YES</td><td>0.005</td><td>$28.78</td><td>nan</td><td>nan</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Recent Signal Audits</h2>
+            <table>
+                <thead><tr><th>Market</th><th>Signal</th><th>Market</th><th>EV</th><th>Verdict</th></tr></thead>
+                <tbody>
+                    <tr><td>Will the Minnesota Timberwolves win the 2026 NBA Finals?</td><td>12.0%</td><td>1.2%</td><td>900.0%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Boston Celtics win the 2026 NBA Finals?</td><td>18.0%</td><td>9.2%</td><td>94.6%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Los Angeles Lakers win the 2026 NBA Finals?</td><td>15.0%</td><td>2.8%</td><td>445.5%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Orlando Magic win the 2026 NBA Finals?</td><td>12.0%</td><td>0.4%</td><td>1100.0%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Philadelphia 76ers win the 2026 NBA Finals?</td><td>12.0%</td><td>1.1%</td><td>1042.9%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Toronto Raptors win the 2026 NBA Finals?</td><td>12.0%</td><td>0.8%</td><td>1100.0%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Minnesota Timberwolves win the 2026 NBA Finals?</td><td>12.0%</td><td>1.2%</td><td>900.0%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Boston Celtics win the 2026 NBA Finals?</td><td>18.0%</td><td>9.2%</td><td>94.6%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Los Angeles Lakers win the 2026 NBA Finals?</td><td>18.0%</td><td>2.9%</td><td>531.6%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Orlando Magic win the 2026 NBA Finals?</td><td>12.0%</td><td>0.4%</td><td>1100.0%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Philadelphia 76ers win the 2026 NBA Finals?</td><td>12.0%</td><td>1.1%</td><td>1042.9%</td><td><span class="badge badge-approved">APPROVED</span></td></tr><tr><td>Will the Toronto Raptors win the 2026 NBA Finals?</td><td>12.0%</td><td>0.8%</td><td>1100.0%</td><td><span class="badge badge-approved">APPROVED</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const scatterData = [];
+        const wins = 0;
+        const losses = 1;
+
+        new Chart(document.getElementById('scatterChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'APPROVED',
+                        data: scatterData.filter(d => d.verdict === 'APPROVED'),
+                        backgroundColor: '#4ade80',
+                        pointRadius: 6
+                    },
+                    {
+                        label: 'REJECTED',
+                        data: scatterData.filter(d => d.verdict === 'REJECTED'),
+                        backgroundColor: '#f87171',
+                        pointRadius: 5
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: 'Market Price', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                    y: { title: { display: true, text: 'Signal Probability', color: '#94a3b8' }, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0' } },
+                    tooltip: { callbacks: { label: ctx => `EV: ${ctx.raw.ev}` } }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Wins', 'Losses'],
+                datasets: [{ data: [wins, losses], backgroundColor: ['#4ade80', '#f87171'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#e2e8f0' } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

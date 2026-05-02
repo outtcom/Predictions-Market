@@ -104,6 +104,9 @@ class TelegramNotifier:
         wins = [p for p in closed_today if (getattr(p, "pnl_usd", 0) or 0) > 0]
         win_rate = len(wins) / len(closed_today) if closed_today else 0.0
 
+        dashboard_url = os.getenv("GITHUB_PAGES_URL", "")
+        dashboard_line = f'<a href="{dashboard_url}">📊 Open Dashboard</a>' if dashboard_url else "📊 Dashboard: set GITHUB_PAGES_URL in .env"
+
         text = (
             f"📋 <b>Daily Summary</b>\n"
             f"Open positions: <code>{len(open_positions)}</code>\n"
@@ -111,10 +114,7 @@ class TelegramNotifier:
             f"Realized P&amp;L: <code>${realized_pnl:+.2f}</code>\n"
             f"Win rate today: <code>{win_rate:.0%}</code>\n"
             f"Bankroll: <code>${bankroll:.2f}</code>\n\n"
-            f"📊 Dashboard (same WiFi):\n"
-            f"<code>http://192.168.2.10:8501</code>\n\n"
-            f"To start:\n"
-            f"<code>start_dashboard.bat</code>"
+            f"{dashboard_line}"
         )
 
         result = self._send(text)
