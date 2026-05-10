@@ -34,13 +34,16 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       GITHUB_PAGES_URL: ${{ secrets.GITHUB_PAGES_URL }}
-      BANKROLL_USD: ${{ secrets.BANKROLL_USD }}
-      LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
+      BANKROLL_USD: "1000"
+      LOG_LEVEL: "INFO"
       MODE: paper
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -70,11 +73,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/
           git diff --staged --quiet || git commit -m "Update dashboard [auto]"
-          git push
+          git push origin master
 
       - name: Notify Telegram on failure
         if: failure()
         run: |
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=🔴 Daily trading run FAILED. Check GitHub Actions: https://github.com/outtcom/Predictions-Market/actions"
+            --data-urlencode "text=🔴 Daily trading run FAILED. Check GitHub Actions: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
