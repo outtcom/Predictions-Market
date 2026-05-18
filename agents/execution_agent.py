@@ -216,9 +216,9 @@ class ExecutionAgent:
         pos.closed_at = datetime.now(timezone.utc).isoformat()
         pos.exit_price = exit_price
         if pos.side == "BUY_YES":
-            pos.pnl_usd = (exit_price - pos.entry_price) * pos.size_usd
+            pos.pnl_usd = round((exit_price - pos.entry_price) * pos.size_usd, 8)
         else:
-            pos.pnl_usd = ((1.0 - exit_price) - pos.entry_price) * pos.size_usd
+            pos.pnl_usd = round(((1.0 - exit_price) - pos.entry_price) * pos.size_usd, 8)
         self._append_ledger({"event": "POSITION_CLOSED", **self._pos_to_dict(pos)})
         log_event(
             "EXECUTION_CLOSE",
@@ -267,7 +267,9 @@ class ExecutionAgent:
             if pos.closed_at is not None:
                 continue
             if pos.entry_price < max_entry_price:
-                self._close_position(pos, exit_price=pos.entry_price)
+                # Use the exit price that produces pnl=0 for each side
+                exit_price = pos.entry_price if pos.side == "BUY_YES" else 1.0 - pos.entry_price
+                self._close_position(pos, exit_price=exit_price)
                 closed_count += 1
                 log_event(
                     "EXECUTION_ZOMBIE_RESET",

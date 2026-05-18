@@ -45,6 +45,21 @@ def _make_agent_with_positions(tmp_path: Path) -> ExecutionAgent:
         },
         {
             "event": "POSITION_OPENED",
+            "position_id": "pos_low_no",
+            "market_id": "mkt_low_no",
+            "platform": "polymarket",
+            "side": "BUY_NO",
+            "entry_price": 0.08,   # sub-10% BUY_NO zombie
+            "size_usd": 20.0,
+            "opened_at": "2026-05-01T12:00:00+00:00",
+            "take_profit": None,
+            "stop_loss": None,
+            "closed_at": None,
+            "exit_price": None,
+            "pnl_usd": None,
+        },
+        {
+            "event": "POSITION_OPENED",
             "position_id": "pos_healthy",
             "market_id": "mkt_healthy",
             "platform": "polymarket",
@@ -69,7 +84,7 @@ class TestResetZombiePositions:
     def test_closes_sub_threshold_positions(self, tmp_path: Path) -> None:
         agent = _make_agent_with_positions(tmp_path)
         count = agent.reset_zombie_positions(max_entry_price=0.10)
-        assert count == 2
+        assert count == 3
 
     def test_healthy_position_stays_open(self, tmp_path: Path) -> None:
         agent = _make_agent_with_positions(tmp_path)
@@ -86,7 +101,7 @@ class TestResetZombiePositions:
             json.loads(l) for l in ledger_lines
             if json.loads(l).get("event") == "POSITION_CLOSED"
         ]
-        assert len(close_records) == 2
+        assert len(close_records) == 3
         for r in close_records:
             assert r["pnl_usd"] == 0.0
 
@@ -96,3 +111,15 @@ class TestResetZombiePositions:
         agent = ExecutionAgent(mode="paper", ledger_path=ledger)
         count = agent.reset_zombie_positions(max_entry_price=0.10)
         assert count == 0
+
+    def test_buy_no_zombie_has_pnl_zero(self, tmp_path: Path) -> None:
+        agent = _make_agent_with_positions(tmp_path)
+        agent.reset_zombie_positions(max_entry_price=0.10)
+        ledger_lines = (tmp_path / "positions.jsonl").read_text().splitlines()
+        close_records = [
+            json.loads(l) for l in ledger_lines
+            if json.loads(l).get("event") == "POSITION_CLOSED"
+            and json.loads(l).get("position_id") == "pos_low_no"
+        ]
+        assert len(close_records) == 1
+        assert close_records[0]["pnl_usd"] == 0.0
