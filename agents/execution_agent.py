@@ -255,3 +255,26 @@ class ExecutionAgent:
 
     def get_position(self, position_id: str) -> Position | None:
         return self._positions.get(position_id)
+
+    def reset_zombie_positions(self, max_entry_price: float = 0.10) -> int:
+        """Close all open positions with entry_price below max_entry_price with pnl=0.
+
+        Used to clear legacy sub-threshold positions that can never trigger exits.
+        Returns the count of positions closed.
+        """
+        closed_count = 0
+        for pos in list(self._positions.values()):
+            if pos.closed_at is not None:
+                continue
+            if pos.entry_price < max_entry_price:
+                self._close_position(pos, exit_price=pos.entry_price)
+                closed_count += 1
+                log_event(
+                    "EXECUTION_ZOMBIE_RESET",
+                    {
+                        "position_id": pos.position_id,
+                        "market_id": pos.market_id,
+                        "entry_price": pos.entry_price,
+                    },
+                )
+        return closed_count
