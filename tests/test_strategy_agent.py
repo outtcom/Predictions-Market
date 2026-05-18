@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pytest
-from agents.strategy_agent import StrategyAgent, StrategyPreset, HIGH_EV_DIVERGENCE
+from agents.strategy_agent import StrategyAgent
 from src.common.schemas import Market
 
 
@@ -26,15 +26,9 @@ def _market(
     )
 
 
-class TestStrategyPreset:
-    def test_high_ev_divergence_preset_exists(self) -> None:
-        assert HIGH_EV_DIVERGENCE.name == "high_ev_divergence"
-        assert HIGH_EV_DIVERGENCE.min_market_price == 0.10
-        assert HIGH_EV_DIVERGENCE.max_market_price == 0.90
-        assert HIGH_EV_DIVERGENCE.min_volume_24h == 5_000
-        assert HIGH_EV_DIVERGENCE.min_days_to_resolution == 1
-        assert HIGH_EV_DIVERGENCE.max_days_to_resolution == 60
-        assert HIGH_EV_DIVERGENCE.min_divergence_threshold == 0.07
+def test_unknown_preset_raises() -> None:
+    with pytest.raises(ValueError, match="Unknown preset"):
+        StrategyAgent(preset="nonexistent")
 
 
 class TestStrategyAgentIsEligible:
@@ -77,6 +71,7 @@ class TestStrategyAgentIsEligible:
     def test_inactive_rejected(self) -> None:
         eligible, reason = self.agent.is_eligible(_market(active=False))
         assert eligible is False
+        assert "inactive" in reason.lower()
 
     def test_zero_days_to_resolution_rejected(self) -> None:
         eligible, reason = self.agent.is_eligible(_market(days_to_resolution=0))

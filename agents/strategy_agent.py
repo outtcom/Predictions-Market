@@ -16,7 +16,6 @@ class StrategyPreset:
     min_volume_24h: float
     min_days_to_resolution: int
     max_days_to_resolution: int
-    min_divergence_threshold: float
 
 
 HIGH_EV_DIVERGENCE = StrategyPreset(
@@ -26,7 +25,6 @@ HIGH_EV_DIVERGENCE = StrategyPreset(
     min_volume_24h=5_000,
     min_days_to_resolution=1,
     max_days_to_resolution=60,
-    min_divergence_threshold=0.07,
 )
 
 _PRESETS: dict[str, StrategyPreset] = {
@@ -44,22 +42,22 @@ class StrategyAgent:
 
     def is_eligible(self, market: Market) -> tuple[bool, str]:
         """Return (True, '') if eligible, or (False, reason) if not."""
-        p = self.preset
+        preset = self.preset
 
         if market.closed:
             return False, "market is closed"
         if not market.active:
             return False, "market is inactive"
-        if market.current_yes_price < p.min_market_price:
-            return False, f"price {market.current_yes_price:.2%} below min {p.min_market_price:.2%}"
-        if market.current_yes_price > p.max_market_price:
-            return False, f"price {market.current_yes_price:.2%} above max {p.max_market_price:.2%}"
-        if market.volume_24h < p.min_volume_24h:
-            return False, f"volume ${market.volume_24h:,.0f} below min ${p.min_volume_24h:,.0f}"
-        if market.days_to_resolution < p.min_days_to_resolution:
-            return False, f"days_to_resolution {market.days_to_resolution} below min {p.min_days_to_resolution}"
-        if market.days_to_resolution > p.max_days_to_resolution:
-            return False, f"days_to_resolution {market.days_to_resolution} above max {p.max_days_to_resolution}"
+        if market.current_yes_price < preset.min_market_price:
+            return False, f"price {market.current_yes_price:.2%} below min {preset.min_market_price:.2%}"
+        if market.current_yes_price > preset.max_market_price:
+            return False, f"price {market.current_yes_price:.2%} above max {preset.max_market_price:.2%}"
+        if market.volume_24h < preset.min_volume_24h:
+            return False, f"volume ${market.volume_24h:,.0f} below min ${preset.min_volume_24h:,.0f}"
+        if market.days_to_resolution < preset.min_days_to_resolution:
+            return False, f"days_to_resolution {market.days_to_resolution} below min {preset.min_days_to_resolution}"
+        if market.days_to_resolution > preset.max_days_to_resolution:
+            return False, f"days_to_resolution {market.days_to_resolution} above max {preset.max_days_to_resolution}"
 
         return True, ""
 
