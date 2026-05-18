@@ -33,6 +33,7 @@ from agents.news_intel_agent import NewsIntelAgent
 from agents.risk_manager import RiskAssessment, RiskManager
 from agents.signal_agent import SignalAgent
 from agents.smart_money_agent import SmartMoneyAgent
+from agents.strategy_agent import StrategyAgent
 
 
 @dataclass
@@ -69,6 +70,7 @@ class Orchestrator:
         self.news_intel = NewsIntelAgent()
         self.risk_manager = RiskManager()
         self.execution = ExecutionAgent(mode=self.mode)
+        self.strategy_agent = StrategyAgent(preset="high_ev_divergence")
         self.notifier = TelegramNotifier()
 
     def run_cycle(self, max_pages: int = 2) -> list[TradeDecision]:
@@ -78,7 +80,7 @@ class Orchestrator:
         # 1. Index markets
         poly_markets = self.ingester.index_polymarket(max_pages=max_pages)
         # Kalshi markets skipped if credentials missing
-        all_markets = poly_markets
+        all_markets = self.strategy_agent.filter(poly_markets)
         if not all_markets:
             log_event("ORCHESTRATOR_CYCLE", {"status": "no_markets"})
             return decisions
