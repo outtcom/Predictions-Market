@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 import requests
@@ -18,6 +19,24 @@ def _to_float(val: str | float | None) -> float:
         return float(val)
     except (ValueError, TypeError):
         return 0.0
+
+
+def _parse_days_to_resolution(raw: dict[str, Any]) -> int:
+    """Compute days until resolution from endDate field."""
+    end_date_str = raw.get("endDate") or raw.get("endDateIso")
+    if not end_date_str:
+        return 0
+    try:
+        # Handle both ISO datetime strings and date-only strings
+        if "T" in str(end_date_str):
+            end_dt = datetime.fromisoformat(str(end_date_str).replace("Z", "+00:00"))
+        else:
+            end_dt = datetime.fromisoformat(str(end_date_str)).replace(tzinfo=timezone.utc)
+        now = datetime.now(tz=timezone.utc)
+        delta = (end_dt - now).days
+        return max(delta, 0)
+    except (ValueError, TypeError):
+        return 0
 
 
 def _parse_gamma_market(raw: dict[str, Any]) -> Market | None:
@@ -51,6 +70,7 @@ def _parse_gamma_market(raw: dict[str, Any]) -> Market | None:
             current_yes_price=yes_price,
             volume_24h=_to_float(raw.get("volume24hr", 0)),
             liquidity_usd=_to_float(raw.get("liquidity", 0)),
+            days_to_resolution=_parse_days_to_resolution(raw),
             active=raw.get("active", True),
             closed=raw.get("closed", False),
             raw=raw,
