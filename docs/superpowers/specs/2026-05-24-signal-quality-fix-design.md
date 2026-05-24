@@ -1,11 +1,11 @@
 # Signal Quality Fix — Design Spec
 
 **Date:** 2026-05-24
-**Problem:** LLM ensemble produces uncalibrated probability estimates, generating fake EV values of 900–1100% on sports markets (e.g., Orlando Magic YES at 0.45% market price with LLM at 12%). All 22 paper positions opened May 2–10 were LLM-only signals on ultra-low-probability sports markets with no corroboration.
+**Problem:** Two compounding issues prevent daily profits: (1) LLM ensemble produces uncalibrated probability estimates, generating fake EV values of 900–1100% on sports markets. (2) The system bets on championship winner markets (NBA Finals, FIFA World Cup) resolving months out — no daily P&L is possible even with perfect signals.
 
-**Root cause:** Metaculus and Manifold matching thresholds are too strict (60%/65% keyword overlap), so sports tournament markets never get a real signal and fall through to the LLM. The LLM generates probabilities in a vacuum without anchoring to the market price, producing calibration errors of 10–25x on tail events.
+**Root cause:** Metaculus and Manifold matching thresholds are too strict (60%/65% keyword overlap), so sports tournament markets never get a real signal and fall through to the LLM. The LLM generates probabilities in a vacuum without anchoring to the market price, producing calibration errors of 10–25x on tail events. Meanwhile, `max_days_to_resolution=60` allows markets that won't resolve for 2 months.
 
-**Fix:** Three-layer defense — anchored LLM prompt, corroboration gate, EV cap.
+**Fix:** Three-layer signal defense + short-duration market filter.
 
 ---
 
@@ -16,9 +16,10 @@
 | Modify | `src/common/prompts.py` |
 | Modify | `src/analysis/llm_forecaster.py` |
 | Modify | `agents/signal_agent.py` |
+| Modify | `agents/strategy_agent.py` |
 | Modify | `tests/test_signal_calibration.py` |
 
-No other files are touched. Risk manager, orchestrator, execution agent, StrategyAgent are unchanged.
+No other files are touched. Risk manager, orchestrator, execution agent are unchanged.
 
 ---
 
@@ -165,6 +166,31 @@ Mock a market at price 0.15. LLM returns `signal_prob=0.25` (EV = 0.67x). `manif
 | LLM anchors on round numbers (12%, 18%) | Anchored prompt (Layer 1) forces market-relative reasoning |
 | Single LLM source driving all trades | Corroboration gate (Layer 3) requires Manifold agreement |
 | Fake "superforecaster consensus" label | Signals correctly labeled `insufficient_corroboration` when unverified |
+
+## Layer 4: Short-Duration Market Filter
+
+**File:** `agents/strategy_agent.py`
+
+**Problem:** `HIGH_EV_DIVERGENCE` preset allows `max_days_to_resolution=60`. Championship markets (NBA Finals, FIFA World Cup winners) pass this filter and consume LLM budget, but resolve months out. Daily profits require markets that resolve within 1–14 days.
+
+**Fix:** Change `max_days_to_resolution` from `60` to `14` in the `HIGH_EV_DIVERGENCE` preset. One-line change.
+
+```python
+HIGH_EV_DIVERGENCE = StrategyPreset(
+    name="high_ev_divergence",
+    min_market_price=0.10,
+    max_market_price=0.90,
+    min_volume_24h=5_000,
+    min_days_to_resolution=1,
+    max_days_to_resolution=14,   # was 60
+)
+```
+
+**Effect:** Markets resolving in ≤14 days include: daily economic releases (CPI, jobs, Fed), weekly political events, individual sports game outcomes, breaking news questions. These generate realized P&L on a daily-to-weekly cadence rather than waiting months.
+
+**If eligible market count drops too low** (< 3 markets per run), raise to 21 days. Monitor `STRATEGY_AGENT_FILTER` log for `eligible` count. Target: 5–15 eligible markets per run.
+
+---
 
 ## What This Does NOT Fix
 
