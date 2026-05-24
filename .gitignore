@@ -31,3 +31,6 @@ env/
 data/
 logs/
 *.parquet
+.worktrees/
+
+.worktrees/
