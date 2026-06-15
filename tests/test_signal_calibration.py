@@ -49,6 +49,28 @@ class TestShortDurationFilter:
         assert "above max" in reason
 
 
+class TestAnchoredPrompt:
+    def test_market_price_appears_in_prompt(self) -> None:
+        from src.common.prompts import format_binary_prompt
+        prompt = format_binary_prompt(
+            question="Will X happen?",
+            resolution_criteria="Standard resolution.",
+            today="2026-05-24",
+            market_price=0.15,
+        )
+        assert "15.0%" in prompt, "Market price must appear in prompt"
+
+    def test_no_market_price_omits_anchor_section(self) -> None:
+        from src.common.prompts import format_binary_prompt
+        prompt = format_binary_prompt(
+            question="Will X happen?",
+            resolution_criteria="",
+            today="2026-05-24",
+            market_price=None,
+        )
+        assert "MARKET CONTEXT" not in prompt
+
+
 class TestSignalCalibration:
     def test_brier_score_on_held_out_data(self) -> None:
         raise NotImplementedError
