@@ -24,7 +24,7 @@ HIGH_EV_DIVERGENCE = StrategyPreset(
     max_market_price=0.90,
     min_volume_24h=5_000,
     min_days_to_resolution=1,
-    max_days_to_resolution=60,
+    max_days_to_resolution=14,
 )
 
 _PRESETS: dict[str, StrategyPreset] = {
