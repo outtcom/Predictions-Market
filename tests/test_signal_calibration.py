@@ -121,6 +121,82 @@ class TestEvCap:
         assert "manifold_corroborated" in result.signal_sources
 
 
+class TestCorroborationGate:
+    def test_no_manifold_coverage_returns_none(self) -> None:
+        """LLM signal with no Manifold match must be suppressed."""
+        from src.analysis.llm_forecaster import EnsembleForecast
+
+        agent = SignalAgent(use_llm=True)
+        market = _make_market(current_yes_price=0.15)
+
+        fake_ensemble = EnsembleForecast(
+            median_prob=0.25,
+            mean_prob=0.25,
+            confidence_low=0.18,
+            confidence_high=0.35,
+            model_probs={"gpt-4o": 0.25},
+            reasoning_summary="Underpriced",
+            sources=["gpt-4o"],
+        )
+
+        with patch("agents.signal_agent.forecast_ensemble", return_value=fake_ensemble):
+            result = agent._llm_signal(market, manifold_prices={})
+
+        assert result is None, "No Manifold coverage should suppress LLM signal"
+
+    def test_manifold_agreeing_returns_signal(self) -> None:
+        """LLM + Manifold both above market → signal returned."""
+        from src.analysis.llm_forecaster import EnsembleForecast
+
+        agent = SignalAgent(use_llm=True)
+        market = _make_market(market_id="mkt_test", current_yes_price=0.15)
+
+        fake_ensemble = EnsembleForecast(
+            median_prob=0.25,
+            mean_prob=0.25,
+            confidence_low=0.18,
+            confidence_high=0.35,
+            model_probs={"gpt-4o": 0.25},
+            reasoning_summary="Underpriced",
+            sources=["gpt-4o"],
+        )
+
+        with patch("agents.signal_agent.forecast_ensemble", return_value=fake_ensemble):
+            result = agent._llm_signal(
+                market,
+                manifold_prices={"mkt_test": 0.22},
+            )
+
+        assert result is not None, "Corroborated LLM signal should be returned"
+        assert result.signal_strength in ("moderate", "strong")
+        assert "manifold_corroborated" in result.signal_sources
+
+    def test_manifold_disagreeing_returns_none(self) -> None:
+        """LLM above market but Manifold below market → signal suppressed."""
+        from src.analysis.llm_forecaster import EnsembleForecast
+
+        agent = SignalAgent(use_llm=True)
+        market = _make_market(market_id="mkt_test", current_yes_price=0.15)
+
+        fake_ensemble = EnsembleForecast(
+            median_prob=0.25,
+            mean_prob=0.25,
+            confidence_low=0.18,
+            confidence_high=0.35,
+            model_probs={"gpt-4o": 0.25},
+            reasoning_summary="Underpriced",
+            sources=["gpt-4o"],
+        )
+
+        with patch("agents.signal_agent.forecast_ensemble", return_value=fake_ensemble):
+            result = agent._llm_signal(
+                market,
+                manifold_prices={"mkt_test": 0.10},  # Manifold at 10%, market at 15% → opposite direction
+            )
+
+        assert result is None, "Disagreeing Manifold should suppress LLM signal"
+
+
 class TestSignalCalibration:
     def test_brier_score_on_held_out_data(self) -> None:
         raise NotImplementedError

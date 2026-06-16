@@ -283,23 +283,33 @@ class SignalAgent:
 
         # Source 2: Manifold cross-platform arbitrage (only for Polymarket markets)
         poly_markets = [m for m in markets if m.platform == "polymarket"]
-        for sig in self._manifold_arbitrage_signals(poly_markets):
-            # If Metaculus already has a signal for this market, blend probabilities
+        manifold_signals = self._manifold_arbitrage_signals(poly_markets)
+
+        # Build Manifold price lookup for corroboration gate: {polymarket_id: manifold_price}
+        manifold_prices: dict[str, float] = {
+            sig.market_id: sig.signal_prob for sig in manifold_signals
+        }
+
+        for sig in manifold_signals:
             existing = all_signals.get(sig.market_id)
             if existing:
                 blended = (existing.signal_prob + sig.signal_prob) / 2.0
+                market_price = next(
+                    (m.current_yes_price for m in markets if m.market_id == sig.market_id),
+                    0.0,
+                )
                 sig = Signal(
                     market_id=sig.market_id,
                     signal_prob=blended,
                     confidence_interval=existing.confidence_interval,
                     signal_sources=existing.signal_sources + sig.signal_sources,
                     staleness_hours=0.0,
-                    signal_strength="strong" if abs(blended - markets[0].current_yes_price) > 0.10 else "moderate",
+                    signal_strength="strong" if abs(blended - market_price) > 0.10 else "moderate",
                     notes=f"BLENDED: {existing.notes} | {sig.notes}",
                 )
             all_signals[sig.market_id] = sig
 
-        # Source 3: LLM ensemble (only for high-value markets without existing signal)
+        # Source 3: LLM ensemble (fallback for markets not covered by Metaculus or Manifold)
         if self.use_llm:
             llm_candidates = [
                 m for m in markets
@@ -310,7 +320,7 @@ class SignalAgent:
             ]
             llm_candidates = sorted(llm_candidates, key=lambda x: x.volume_24h, reverse=True)[:10]
             for market in llm_candidates:
-                sig = self._llm_signal(market)
+                sig = self._llm_signal(market, manifold_prices=manifold_prices)
                 if sig:
                     all_signals[sig.market_id] = sig
 
