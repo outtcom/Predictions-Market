@@ -84,7 +84,7 @@ class TestStrategyAgentIsEligible:
         assert "days" in reason.lower()
 
     def test_exactly_at_max_days_passes(self) -> None:
-        eligible, _ = self.agent.is_eligible(_market(days_to_resolution=60))
+        eligible, _ = self.agent.is_eligible(_market(days_to_resolution=14))
         assert eligible is True
 
 

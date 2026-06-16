@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 
+MARKET_ANCHOR_SECTION = """
+MARKET CONTEXT:
+The prediction market currently prices YES at {market_price:.1%}. This represents
+the aggregate belief of real-money traders. Do not generate a probability from
+scratch — instead, evaluate whether the market is systematically wrong.
+
+If your estimate differs from the market price by more than 10 percentage points,
+you MUST identify a specific, concrete mechanism (e.g., "market hasn't priced in
+yesterday's news", "systematic underestimation of incumbent advantage") that
+explains why sophisticated traders with real money at stake have it wrong.
+Vague disagreement ("I think the probability is higher") is not sufficient.
+"""
+
 BINARY_FORECAST_PROMPT = """You are a superforecaster participating in a prediction market. Your task is to estimate the probability that the following question resolves YES.
 
 QUESTION: {question}
 
 RESOLUTION CRITERIA: {resolution_criteria}
-
+{anchor_section}
 Follow this structured reasoning process:
 
 1. BASE RATE / OUTSIDE VIEW
@@ -48,10 +61,21 @@ Rules:
 """
 
 
-def format_binary_prompt(question: str, resolution_criteria: str = "", today: str = "") -> str:
+def format_binary_prompt(
+    question: str,
+    resolution_criteria: str = "",
+    today: str = "",
+    market_price: float | None = None,
+) -> str:
     """Format the binary forecasting prompt with market details."""
+    anchor_section = (
+        MARKET_ANCHOR_SECTION.format(market_price=market_price)
+        if market_price is not None
+        else ""
+    )
     return BINARY_FORECAST_PROMPT.format(
         question=question,
         resolution_criteria=resolution_criteria or "Standard resolution by the market platform.",
         today=today or "the current date",
+        anchor_section=anchor_section,
     )

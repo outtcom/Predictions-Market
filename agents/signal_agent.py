@@ -26,6 +26,9 @@ from src.indexers.manifold.client import ManifoldClient
 from src.indexers.metaculus.client import MetaculusClient
 
 
+_MAX_LLM_EV = 3.0  # 300% — real edge doesn't exceed this; higher means LLM miscalibration
+
+
 class SignalAgent:
     """Generates independent probability estimates for markets."""
 
@@ -89,11 +92,15 @@ class SignalAgent:
                 best = m
         return best
 
-    def _llm_signal(self, market: Market) -> Signal | None:
+    def _llm_signal(self, market: Market, manifold_prices: dict[str, float] | None = None) -> Signal | None:
         """Generate a signal via LLM ensemble for a single market."""
+        if manifold_prices is None:
+            manifold_prices = {}
+
         ensemble = forecast_ensemble(
             question=market.question,
             resolution_criteria=market.raw.get("description", "") if market.raw else "",
+            market_price=market.current_yes_price,
         )
         if ensemble is None:
             return None
@@ -102,19 +109,61 @@ class SignalAgent:
         if divergence < self.divergence_threshold:
             return None
 
+        # EV cap — reject signals where LLM disagrees by > 300x the market price
+        ev = (ensemble.median_prob - market.current_yes_price) / market.current_yes_price if market.current_yes_price > 0 else 0.0
+        if ev > _MAX_LLM_EV:
+            log_event(
+                "SIGNAL_LLM_EV_CAPPED",
+                {
+                    "market_id": market.market_id,
+                    "signal_prob": ensemble.median_prob,
+                    "market_price": market.current_yes_price,
+                    "ev": round(ev, 2),
+                    "reason": f"LLM EV {ev:.1f}x exceeds {_MAX_LLM_EV}x cap",
+                },
+            )
+            return None
+
+        # Corroboration gate — require Manifold to agree (same direction, ≥3%)
+        _MANIFOLD_MIN_CORROBORATION = 0.03
+        manifold_price = manifold_prices.get(market.market_id)
+        if manifold_price is not None:
+            manifold_divergence = manifold_price - market.current_yes_price
+            llm_divergence = ensemble.median_prob - market.current_yes_price
+            same_direction = (manifold_divergence * llm_divergence) > 0
+            sufficient = abs(manifold_divergence) >= _MANIFOLD_MIN_CORROBORATION
+            corroborated = same_direction and sufficient
+        else:
+            corroborated = False
+
+        if not corroborated:
+            log_event(
+                "SIGNAL_LLM_NO_CORROBORATION",
+                {
+                    "market_id": market.market_id,
+                    "signal_prob": ensemble.median_prob,
+                    "market_price": market.current_yes_price,
+                    "manifold_price": manifold_price,
+                    "reason": "no Manifold coverage" if manifold_price is None else "Manifold disagrees or insufficient divergence",
+                },
+            )
+            return None
+
         signal_strength = "strong" if divergence > 0.10 else "moderate"
 
         return Signal(
             market_id=market.market_id,
             signal_prob=ensemble.median_prob,
             confidence_interval=(ensemble.confidence_low, ensemble.confidence_high),
-            signal_sources=ensemble.sources + ["llm_ensemble"],
+            signal_sources=ensemble.sources + ["llm_ensemble", "manifold_corroborated"],
             staleness_hours=0.0,
             signal_strength=signal_strength,
             notes=(
                 f"LLM ensemble median={ensemble.median_prob:.2%} "
                 f"vs market={market.current_yes_price:.2%} "
-                f"(divergence={divergence:.2%}). Models: {ensemble.model_probs}"
+                f"(divergence={divergence:.2%}, EV={ev:.1f}x). "
+                f"Manifold corroboration: {manifold_price:.2%}. "
+                f"Models: {ensemble.model_probs}"
             ),
         )
 
@@ -234,23 +283,33 @@ class SignalAgent:
 
         # Source 2: Manifold cross-platform arbitrage (only for Polymarket markets)
         poly_markets = [m for m in markets if m.platform == "polymarket"]
-        for sig in self._manifold_arbitrage_signals(poly_markets):
-            # If Metaculus already has a signal for this market, blend probabilities
+        manifold_signals = self._manifold_arbitrage_signals(poly_markets)
+
+        # Build Manifold price lookup for corroboration gate: {polymarket_id: manifold_price}
+        manifold_prices: dict[str, float] = {
+            sig.market_id: sig.signal_prob for sig in manifold_signals
+        }
+
+        for sig in manifold_signals:
             existing = all_signals.get(sig.market_id)
             if existing:
                 blended = (existing.signal_prob + sig.signal_prob) / 2.0
+                market_price = next(
+                    (m.current_yes_price for m in markets if m.market_id == sig.market_id),
+                    0.0,
+                )
                 sig = Signal(
                     market_id=sig.market_id,
                     signal_prob=blended,
                     confidence_interval=existing.confidence_interval,
                     signal_sources=existing.signal_sources + sig.signal_sources,
                     staleness_hours=0.0,
-                    signal_strength="strong" if abs(blended - markets[0].current_yes_price) > 0.10 else "moderate",
+                    signal_strength="strong" if abs(blended - market_price) > 0.10 else "moderate",
                     notes=f"BLENDED: {existing.notes} | {sig.notes}",
                 )
             all_signals[sig.market_id] = sig
 
-        # Source 3: LLM ensemble (only for high-value markets without existing signal)
+        # Source 3: LLM ensemble (fallback for markets not covered by Metaculus or Manifold)
         if self.use_llm:
             llm_candidates = [
                 m for m in markets
@@ -261,7 +320,7 @@ class SignalAgent:
             ]
             llm_candidates = sorted(llm_candidates, key=lambda x: x.volume_24h, reverse=True)[:10]
             for market in llm_candidates:
-                sig = self._llm_signal(market)
+                sig = self._llm_signal(market, manifold_prices=manifold_prices)
                 if sig:
                     all_signals[sig.market_id] = sig
 

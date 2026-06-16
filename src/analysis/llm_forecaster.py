@@ -70,12 +70,12 @@ def _safe_float(val: Any) -> float:
         return 0.5
 
 
-def _call_openai(question: str, resolution_criteria: str, model: str = "gpt-4o") -> LlmForecast | None:
+def _call_openai(question: str, resolution_criteria: str, model: str = "gpt-4o", market_price: float | None = None) -> LlmForecast | None:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return None
     client = OpenAI(api_key=api_key)
-    prompt = format_binary_prompt(question, resolution_criteria, today=datetime.now(timezone.utc).isoformat()[:10])
+    prompt = format_binary_prompt(question, resolution_criteria, today=datetime.now(timezone.utc).isoformat()[:10], market_price=market_price)
 
     try:
         resp = client.chat.completions.create(
@@ -105,7 +105,7 @@ def _call_openai(question: str, resolution_criteria: str, model: str = "gpt-4o")
         return None
 
 
-def _call_anthropic(question: str, resolution_criteria: str, model: str = "claude-3-5-sonnet-latest") -> LlmForecast | None:
+def _call_anthropic(question: str, resolution_criteria: str, model: str = "claude-3-5-sonnet-latest", market_price: float | None = None) -> LlmForecast | None:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return None
@@ -115,7 +115,7 @@ def _call_anthropic(question: str, resolution_criteria: str, model: str = "claud
         return None
 
     client = Anthropic(api_key=api_key)
-    prompt = format_binary_prompt(question, resolution_criteria, today=datetime.now(timezone.utc).isoformat()[:10])
+    prompt = format_binary_prompt(question, resolution_criteria, today=datetime.now(timezone.utc).isoformat()[:10], market_price=market_price)
 
     try:
         resp = client.messages.create(
@@ -143,7 +143,7 @@ def _call_anthropic(question: str, resolution_criteria: str, model: str = "claud
         return None
 
 
-def _call_groq(question: str, resolution_criteria: str, model: str = "llama-3.3-70b-versatile") -> LlmForecast | None:
+def _call_groq(question: str, resolution_criteria: str, model: str = "llama-3.3-70b-versatile", market_price: float | None = None) -> LlmForecast | None:
     """Query Groq (fast Llama inference) as a third ensemble member."""
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
@@ -154,7 +154,7 @@ def _call_groq(question: str, resolution_criteria: str, model: str = "llama-3.3-
         return None
 
     client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-    prompt = format_binary_prompt(question, resolution_criteria, today=datetime.now(timezone.utc).isoformat()[:10])
+    prompt = format_binary_prompt(question, resolution_criteria, today=datetime.now(timezone.utc).isoformat()[:10], market_price=market_price)
 
     try:
         resp = client.chat.completions.create(
@@ -184,19 +184,19 @@ def _call_groq(question: str, resolution_criteria: str, model: str = "llama-3.3-
         return None
 
 
-def forecast_ensemble(question: str, resolution_criteria: str = "") -> EnsembleForecast | None:
+def forecast_ensemble(question: str, resolution_criteria: str = "", market_price: float | None = None) -> EnsembleForecast | None:
     """Query GPT-4, Claude, and Groq; return median ensemble forecast."""
     forecasts: list[LlmForecast] = []
 
-    gpt = _call_openai(question, resolution_criteria, model="gpt-4o")
+    gpt = _call_openai(question, resolution_criteria, model="gpt-4o", market_price=market_price)
     if gpt:
         forecasts.append(gpt)
 
-    claude = _call_anthropic(question, resolution_criteria, model="claude-sonnet-4-6")
+    claude = _call_anthropic(question, resolution_criteria, model="claude-sonnet-4-6", market_price=market_price)
     if claude:
         forecasts.append(claude)
 
-    groq = _call_groq(question, resolution_criteria, model="llama-3.3-70b-versatile")
+    groq = _call_groq(question, resolution_criteria, model="llama-3.3-70b-versatile", market_price=market_price)
     if groq:
         forecasts.append(groq)
 
