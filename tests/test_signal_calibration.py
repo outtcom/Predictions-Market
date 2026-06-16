@@ -71,6 +71,56 @@ class TestAnchoredPrompt:
         assert "MARKET CONTEXT" not in prompt
 
 
+class TestEvCap:
+    def test_ev_above_300pct_returns_none(self) -> None:
+        """LLM returning 12% on a 1% market (EV=11x) must be dropped."""
+        from src.analysis.llm_forecaster import EnsembleForecast
+
+        agent = SignalAgent(use_llm=True)
+        market = _make_market(current_yes_price=0.01)
+
+        fake_ensemble = EnsembleForecast(
+            median_prob=0.12,
+            mean_prob=0.12,
+            confidence_low=0.06,
+            confidence_high=0.20,
+            model_probs={"gpt-4o": 0.12},
+            reasoning_summary="Seems possible",
+            sources=["gpt-4o"],
+        )
+
+        with patch("agents.signal_agent.forecast_ensemble", return_value=fake_ensemble):
+            result = agent._llm_signal(market, manifold_prices={})
+
+        assert result is None, f"Expected None (EV cap), got: {result}"
+
+    def test_ev_below_300pct_with_corroboration_returns_signal(self) -> None:
+        """LLM returning 25% on a 15% market (EV=0.67x) with Manifold agreeing returns a signal."""
+        from src.analysis.llm_forecaster import EnsembleForecast
+
+        agent = SignalAgent(use_llm=True)
+        market = _make_market(current_yes_price=0.15)
+
+        fake_ensemble = EnsembleForecast(
+            median_prob=0.25,
+            mean_prob=0.25,
+            confidence_low=0.18,
+            confidence_high=0.35,
+            model_probs={"gpt-4o": 0.25},
+            reasoning_summary="Underpriced",
+            sources=["gpt-4o"],
+        )
+
+        with patch("agents.signal_agent.forecast_ensemble", return_value=fake_ensemble):
+            result = agent._llm_signal(
+                market,
+                manifold_prices={market.market_id: 0.22},  # Manifold also above market
+            )
+
+        assert result is not None, "Signal below EV cap with Manifold corroboration must be returned"
+        assert "manifold_corroborated" in result.signal_sources
+
+
 class TestSignalCalibration:
     def test_brier_score_on_held_out_data(self) -> None:
         raise NotImplementedError

@@ -26,6 +26,9 @@ from src.indexers.manifold.client import ManifoldClient
 from src.indexers.metaculus.client import MetaculusClient
 
 
+_MAX_LLM_EV = 3.0  # 300% — real edge doesn't exceed this; higher means LLM miscalibration
+
+
 class SignalAgent:
     """Generates independent probability estimates for markets."""
 
@@ -89,11 +92,15 @@ class SignalAgent:
                 best = m
         return best
 
-    def _llm_signal(self, market: Market) -> Signal | None:
+    def _llm_signal(self, market: Market, manifold_prices: dict[str, float] | None = None) -> Signal | None:
         """Generate a signal via LLM ensemble for a single market."""
+        if manifold_prices is None:
+            manifold_prices = {}
+
         ensemble = forecast_ensemble(
             question=market.question,
             resolution_criteria=market.raw.get("description", "") if market.raw else "",
+            market_price=market.current_yes_price,
         )
         if ensemble is None:
             return None
@@ -102,19 +109,61 @@ class SignalAgent:
         if divergence < self.divergence_threshold:
             return None
 
+        # EV cap — reject signals where LLM disagrees by > 300x the market price
+        ev = (ensemble.median_prob - market.current_yes_price) / market.current_yes_price if market.current_yes_price > 0 else 0.0
+        if ev > _MAX_LLM_EV:
+            log_event(
+                "SIGNAL_LLM_EV_CAPPED",
+                {
+                    "market_id": market.market_id,
+                    "signal_prob": ensemble.median_prob,
+                    "market_price": market.current_yes_price,
+                    "ev": round(ev, 2),
+                    "reason": f"LLM EV {ev:.1f}x exceeds {_MAX_LLM_EV}x cap",
+                },
+            )
+            return None
+
+        # Corroboration gate — require Manifold to agree (same direction, ≥3%)
+        _MANIFOLD_MIN_CORROBORATION = 0.03
+        manifold_price = manifold_prices.get(market.market_id)
+        if manifold_price is not None:
+            manifold_divergence = manifold_price - market.current_yes_price
+            llm_divergence = ensemble.median_prob - market.current_yes_price
+            same_direction = (manifold_divergence * llm_divergence) > 0
+            sufficient = abs(manifold_divergence) >= _MANIFOLD_MIN_CORROBORATION
+            corroborated = same_direction and sufficient
+        else:
+            corroborated = False
+
+        if not corroborated:
+            log_event(
+                "SIGNAL_LLM_NO_CORROBORATION",
+                {
+                    "market_id": market.market_id,
+                    "signal_prob": ensemble.median_prob,
+                    "market_price": market.current_yes_price,
+                    "manifold_price": manifold_price,
+                    "reason": "no Manifold coverage" if manifold_price is None else "Manifold disagrees or insufficient divergence",
+                },
+            )
+            return None
+
         signal_strength = "strong" if divergence > 0.10 else "moderate"
 
         return Signal(
             market_id=market.market_id,
             signal_prob=ensemble.median_prob,
             confidence_interval=(ensemble.confidence_low, ensemble.confidence_high),
-            signal_sources=ensemble.sources + ["llm_ensemble"],
+            signal_sources=ensemble.sources + ["llm_ensemble", "manifold_corroborated"],
             staleness_hours=0.0,
             signal_strength=signal_strength,
             notes=(
                 f"LLM ensemble median={ensemble.median_prob:.2%} "
                 f"vs market={market.current_yes_price:.2%} "
-                f"(divergence={divergence:.2%}). Models: {ensemble.model_probs}"
+                f"(divergence={divergence:.2%}, EV={ev:.1f}x). "
+                f"Manifold corroboration: {manifold_price:.2%}. "
+                f"Models: {ensemble.model_probs}"
             ),
         )
 
